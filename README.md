@@ -17,7 +17,7 @@ Given messy queries like "tolkien hobbit illustrated deluxe 1937" or "mark huckl
 
 ## 🏗️ Architecture: Clean Architecture
 
-```
+```text
 API Layer          → Controllers, HTTP concerns
 Infrastructure     → Gemini client, Open Library client
 Application        → Use cases, matching logic, interfaces
@@ -119,14 +119,14 @@ dotnet test
 
 ### 🔄 Phase 2: Application Layer (In Progress)
 
-*(Will be updated after completion)*
+Will be updated after completion.
 
 ---
 
 ## 🎨 Key Design Decisions
 
 | Decision | Why |
-|----------|-----|
+| -------- | --- |
 | **Clean Architecture** | Testability, flexibility, demonstrates senior thinking |
 | **Records for Value Objects** | Immutability + equality by value |
 | **Factory methods in BookMatch** | Self-documenting, prevents inconsistencies |
