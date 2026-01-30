@@ -37,16 +37,26 @@ public class SearchBooksUseCase
         SearchBooksRequest request,
         CancellationToken cancellationToken = default)
     {
+        // Validar que el query no esté vacío
+        if (request is null)
+            throw new ArgumentNullException(nameof(request));
+
+        if (string.IsNullOrWhiteSpace(request.Query))
+            throw new ArgumentException("Query cannot be empty.", nameof(request));
+
         _logger.LogInformation("Starting book search for query: {Query}", request.Query);
 
-        // Step 1: Extraer campos utilizando IA
         var extraction = await _aiExtractor.ExtractFieldsAsync(request.Query, cancellationToken);
+
+        var keywords = extraction.Keywords?.Any() == true
+            ? string.Join(", ", extraction.Keywords)
+            : "none";
 
         _logger.LogInformation(
             "AI extracted - Title: {Title}, Author: {Author}, Keywords: {Keywords}",
             extraction.Title ?? "none",
             extraction.Author ?? "none",
-            string.Join(", ", extraction.Keywords));
+            keywords);
 
         // Step 2: Buscar en Open Library
         var candidates = await SearchCandidatesAsync(extraction, cancellationToken);
@@ -92,7 +102,7 @@ public class SearchBooksUseCase
         }
 
         // Si solo hay palabras clave, busca con palabras clave como consulta.
-        if (extraction.Keywords.Any())
+        if (extraction.Keywords?.Any() == true)
         {
             var keywordQuery = string.Join(" ", extraction.Keywords);
             return await _openLibraryClient.SearchBooksAsync(

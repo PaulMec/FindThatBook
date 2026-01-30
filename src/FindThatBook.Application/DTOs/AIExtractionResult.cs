@@ -15,5 +15,5 @@ public record AIExtractionResult
 
     public bool HasTitle => !string.IsNullOrWhiteSpace(Title);
     public bool HasAuthor => !string.IsNullOrWhiteSpace(Author);
-    public bool HasAnyField => HasTitle || HasAuthor || Keywords.Any();
+    public bool HasAnyField => HasTitle || HasAuthor || (Keywords?.Any() == true);
 }
