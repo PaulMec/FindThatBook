@@ -48,7 +48,14 @@ public sealed class Book
     /// <summary>
     /// Obtiene la URL completa de OpenLibrary para esta obra.
     /// </summary>
-    public string GetOpenLibraryUrl() => $"https://openlibrary.org{OpenLibraryWorkId}";
+    public string GetOpenLibraryUrl()
+    {
+        var workId = OpenLibraryWorkId.StartsWith("/")
+            ? OpenLibraryWorkId
+            : $"/works/{OpenLibraryWorkId}";
+
+        return $"https://openlibrary.org{workId}";
+    }
 
     /// <summary>
     /// Comprueba autor (por nombre) es el autor principal o colaborador.

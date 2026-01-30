@@ -82,6 +82,11 @@ public sealed record BookMatch
     /// </summary>
     public static BookMatch CreateVeryWeak(Book book, IEnumerable<string> matchedKeywords)
     {
+        if (matchedKeywords == null || !matchedKeywords.Any())
+            throw new ArgumentException(
+                "Se requiere al menos una palabra clave coincidente.",
+                nameof(matchedKeywords));
+
         var keywords = string.Join(", ", matchedKeywords);
         return new BookMatch(
             book,
