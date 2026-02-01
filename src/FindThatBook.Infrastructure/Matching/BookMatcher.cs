@@ -23,6 +23,12 @@ public class BookMatcher : IBookMatcher
 
     public List<BookMatch> Match(AIExtractionResult extraction, List<Book> candidates)
     {
+        if (extraction == null)
+        {
+            _logger.LogWarning("Null extraction result provided");
+            return new List<BookMatch>();
+        }
+
         if (candidates == null || !candidates.Any())
         {
             _logger.LogInformation("No candidates to match");

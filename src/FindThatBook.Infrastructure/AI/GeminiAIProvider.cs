@@ -62,7 +62,7 @@ public class GeminiAIProvider : IAIFieldExtractor
 
             var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
-            _logger.LogDebug("Gemini API response: {Response}", responseBody);
+            _logger.LogDebug("Gemini API response length: {Length}", responseBody.Length);
 
             return ParseGeminiResponse(responseBody, query);
         }
@@ -146,8 +146,8 @@ Rules:
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to parse Gemini response: {Response}", responseBody);
-            throw new AIExtractionException(originalQuery, "Failed to parse AI response", responseBody);
+            _logger.LogError(ex, "Failed to parse Gemini response");
+            throw new AIExtractionException(originalQuery, "Failed to parse AI response");
         }
     }
 }

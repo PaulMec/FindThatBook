@@ -149,7 +149,12 @@ public class OpenLibraryClient : IOpenLibraryClient
             var primaryAuthor = new Author(primaryAuthorName);
 
             // Open Library uses /works/OL123W format
-            var workId = doc.Key ?? $"/works/UNKNOWN";
+            if (string.IsNullOrWhiteSpace(doc.Key))
+            {
+                _logger.LogWarning("SearchDoc missing key for title: {Title}", doc.Title);
+                return null;
+            }
+            var workId = doc.Key;
 
             var coverUrl = doc.CoverId.HasValue
                 ? $"https://covers.openlibrary.org/b/id/{doc.CoverId}-L.jpg"
