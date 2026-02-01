@@ -68,7 +68,7 @@ public class GeminiAIProvider : IAIFieldExtractor
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "HTTP error calling Gemini API for query: {Query}", query);
+            _logger.LogError(ex, "HTTP error calling Gemini API");
             throw new AIExtractionException(query, "Failed to call Gemini API", ex);
         }
         catch (JsonException ex)

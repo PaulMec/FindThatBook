@@ -95,6 +95,7 @@ public class OpenLibraryClient : IOpenLibraryClient
             throw new OpenLibraryApiException("Failed to parse Open Library response", ex);
         }
     }
+
     public async Task<Book?> GetWorkDetailsAsync(
     string workId,
     CancellationToken cancellationToken = default)
@@ -145,8 +146,15 @@ public class OpenLibraryClient : IOpenLibraryClient
             if (string.IsNullOrWhiteSpace(doc.Title) || doc.AuthorName?.Any() != true)
                 return null;
 
-            var primaryAuthorName = doc.AuthorName.First();
-            var primaryAuthor = new Author(primaryAuthorName);
+            // Filter out invalid author names
+            var authorNames = doc.AuthorName
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToList();
+
+            if (authorNames.Count == 0)
+                return null;
+
+            var primaryAuthor = new Author(authorNames[0]);
 
             // Open Library uses /works/OL123W format
             if (string.IsNullOrWhiteSpace(doc.Key))
@@ -164,7 +172,7 @@ public class OpenLibraryClient : IOpenLibraryClient
                 title: doc.Title,
                 primaryAuthor: primaryAuthor,
                 openLibraryWorkId: workId,
-                contributors: doc.AuthorName.Skip(1).Select(name => new Author(name)).ToList(),
+                contributors: authorNames.Skip(1).Select(name => new Author(name)).ToList(),
                 firstPublishYear: doc.FirstPublishYear,
                 coverUrl: coverUrl,
                 description: null
