@@ -1,44 +1,65 @@
+using FindThatBook.Application.Interfaces;
+using FindThatBook.Application.UseCases;
+using FindThatBook.Infrastructure.AI;
+using FindThatBook.Infrastructure.Matching;
+using FindThatBook.Infrastructure.OpenLibrary;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Add Controllers
+builder.Services.AddControllers();
+
+// Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "Find That Book API",
+        Version = "v1",
+        Description = "A book discovery API that uses AI to find books from messy queries"
+    });
+});
+
+// Configure Options
+builder.Services.Configure<GeminiOptions>(
+    builder.Configuration.GetSection(GeminiOptions.SectionName));
+
+builder.Services.Configure<OpenLibraryOptions>(
+    builder.Configuration.GetSection(OpenLibraryOptions.SectionName));
+
+// Register HttpClients
+builder.Services.AddHttpClient<IAIFieldExtractor, GeminiAIProvider>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "FindThatBook/1.0");
+});
+
+builder.Services.AddHttpClient<IOpenLibraryClient, OpenLibraryClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "FindThatBook/1.0");
+});
+
+// Register Services
+builder.Services.AddScoped<IBookMatcher, BookMatcher>();
+builder.Services.AddScoped<IBookRanker, BookRanker>();
+builder.Services.AddScoped<SearchBooksUseCase>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Swagger
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Find That Book API v1");
+    options.RoutePrefix = "swagger";
+});
+
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+app.UseAuthorization();
+app.MapControllers();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
