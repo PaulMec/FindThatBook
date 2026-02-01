@@ -2,6 +2,8 @@
 
 A .NET 8 book discovery application that uses AI + Open Library API to find books from messy user queries.
 
+> 🤖 **Note:** This project was built with AI assistance (GitHub Copilot) for code generation, documentation, and best practices guidance.
+
 ## 🎯 Overview
 
 Given messy queries like "tolkien hobbit illustrated deluxe 1937" or "mark huckleberry", this app:
@@ -18,18 +20,26 @@ Given messy queries like "tolkien hobbit illustrated deluxe 1937" or "mark huckl
 ## 🏗️ Architecture: Clean Architecture
 
 ```text
-API Layer          → Controllers, HTTP concerns
-Infrastructure     → Gemini client, Open Library client
-Application        → Use cases, matching logic, interfaces
-Domain             → Entities (Book), Value Objects (Author), Business rules
+┌─────────────────────────────────────────────────────────────┐
+│                        API Layer                            │
+│              Controllers, HTTP concerns, Swagger            │
+├─────────────────────────────────────────────────────────────┤
+│                    Infrastructure Layer                     │
+│         GeminiAIProvider, OpenLibraryClient, Matching       │
+├─────────────────────────────────────────────────────────────┤
+│                    Application Layer                        │
+│            Use Cases, DTOs, Interfaces                      │
+├─────────────────────────────────────────────────────────────┤
+│                      Domain Layer                           │
+│      Entities (Book), Value Objects (Author), Enums         │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Why?**
-- Testable without external APIs
-- Easy to swap AI providers or add new book sources
-- Professional, maintainable code structure
-
-**What we avoided:** CQRS, Event Sourcing, Mediator (over-engineering for 4-6 hours)
+**Why Clean Architecture?**
+- ✅ Testable without external APIs
+- ✅ Easy to swap AI providers or add new book sources
+- ✅ Professional, maintainable code structure
+- ✅ Clear separation of concerns
 
 ---
 
@@ -37,24 +47,32 @@ Domain             → Entities (Book), Value Objects (Author), Business rules
 
 ### Prerequisites
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [Gemini API Key](https://makersuite.google.com/app/apikey)
+- [Gemini API Key](https://aistudio.google.com/app/apikey)
 
 ### Setup
 
 ```bash
+# Clone the repository
 git clone https://github.com/PaulMec/FindThatBook.git
 cd FindThatBook
+
+# Restore dependencies
 dotnet restore
 
-# Configure API key
+# Configure your Gemini API key (stored securely in User Secrets)
 cd src/FindThatBook.Api
-dotnet user-secrets set "AIProvider:ApiKey" "YOUR_KEY_HERE"
+dotnet user-secrets init
+dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_API_KEY_HERE"
+cd ../..
+
+# Build
+dotnet build
 
 # Run
 dotnet run --project src/FindThatBook.Api
 ```
 
-Open: `https://localhost:7001/swagger`
+Open Swagger UI: `https://localhost:5200/swagger`
 
 ### Run Tests
 
@@ -64,62 +82,86 @@ dotnet test
 
 ---
 
-## 📡 API Example
+## 📡 API Usage
+
+### Search Books
 
 **POST** `/api/books/search`
 
+**Request:**
 ```json
 {
-  "query": "tolkien hobbit illustrated deluxe 1937"
+  "query": "tolkien hobbit"
 }
 ```
 
 **Response:**
-
 ```json
 {
+  "query": "tolkien hobbit",
+  "extraction": {
+    "title": "hobbit",
+    "author": "tolkien",
+    "year": null,
+    "keywords": [],
+    "hasTitle": true,
+    "hasAuthor": true,
+    "hasAnyField": true
+  },
   "results": [
     {
       "title": "The Hobbit",
       "author": "J.R.R. Tolkien",
       "firstPublishYear": 1937,
-      "openLibraryId": "/works/OL27516W",
-      "openLibraryUrl": "https://openlibrary.org/works/OL27516W",
-      "coverUrl": "https://covers.openlibrary.org/b/id/12345-L.jpg",
-      "explanation": "Exact title match; Tolkien is primary author"
+      "openLibraryId": "/works/OL27482W",
+      "openLibraryUrl": "https://openlibrary.org/works/OL27482W",
+      "coverUrl": "https://covers.openlibrary.org/b/id/14627509-L.jpg",
+      "explanation": "Coincidencia exacta del título; tolkien es el autor principal."
     }
-  ],
-  "query": "tolkien hobbit illustrated deluxe 1937",
-  "extraction": {
-    "title": "The Hobbit",
-    "author": "Tolkien",
-    "keywords": ["illustrated", "deluxe"],
-    "year": 1937
-  }
+  ]
+}
+```
+
+### Health Check
+
+**GET** `/api/books/health`
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-02-01T04:59:46Z"
 }
 ```
 
 ---
 
-## 🎯 What's Implemented
+## 🎯 Features Implemented
 
-### ✅ Phase 1: Domain Layer (Completed)
-
-**Core entities and business logic:**
+### ✅ Phase 1: Domain Layer
 - `Book` entity with methods like `HasAuthor()`, `GetNormalizedTitle()`
 - `Author` and `SearchQuery` value objects (immutable, self-normalizing)
-- `BookMatch` record with factory methods for different confidence levels
+- `BookMatch` record with factory methods for confidence levels
 - `MatchStrength` enum (Strongest → VeryWeak)
-- Custom exception hierarchy for better error handling
+- Custom exception hierarchy
 
-**Design decisions:**
-- Records for immutability (prevents bugs)
-- Validation in constructors (fail fast)
-- Zero dependencies (pure business logic)
+### ✅ Phase 2: Application Layer
+- `SearchBooksUseCase` orchestrating the search flow
+- `IAIFieldExtractor` interface for AI abstraction
+- `IOpenLibraryClient` interface for book source abstraction
+- `IBookMatcher` and `IBookRanker` interfaces
+- DTOs for requests and responses
 
-### 🔄 Phase 2: Application Layer (In Progress)
+### ✅ Phase 3: Infrastructure Layer
+- `GeminiAIProvider` - Gemini AI integration for field extraction
+- `OpenLibraryClient` - Open Library API integration
+- `BookMatcher` - 4 matching strategies (Title+Author, Title-only, Author-only, Keywords)
+- `BookRanker` - Orders by MatchStrength, returns top N
 
-Will be updated after completion.
+### ✅ Phase 4: API Layer
+- `BooksController` with search and health endpoints
+- Full Dependency Injection configuration
+- Swagger/OpenAPI documentation
+- User Secrets for secure API key storage
 
 ---
 
@@ -128,33 +170,92 @@ Will be updated after completion.
 | Decision | Why |
 | -------- | --- |
 | **Clean Architecture** | Testability, flexibility, demonstrates senior thinking |
-| **Records for Value Objects** | Immutability + equality by value |
+| **Records for DTOs** | Immutability + cleaner code |
 | **Factory methods in BookMatch** | Self-documenting, prevents inconsistencies |
-| **Custom exceptions with metadata** | Better debugging (includes query, status code, etc.) |
-| **AI fields are optional** | Handles "only author" or "only title" queries |
+| **Custom exceptions with metadata** | Better debugging (includes query, status code) |
+| **User Secrets for API Key** | Security best practice - keys never in source code |
+| **Options Pattern** | Type-safe configuration with validation |
 
 ---
 
 ## 🧪 Testing Strategy
 
-- **Unit tests:** Domain logic, matching algorithms (fast, isolated)
-- **Integration tests:** Full API flow with mocked external services
-- **Framework:** xUnit + Moq + FluentAssertions
+- **Unit tests:** Domain logic, value objects (fast, isolated)
+- **Integration tests:** Full API flow testing
+- **Framework:** xUnit + FluentAssertions
+
+```bash
+# Run all tests
+dotnet test
+
+# Run with coverage
+dotnet test --collect:"XPlat Code Coverage"
+```
 
 ---
 
-## 📖 Assumptions
+## 📁 Project Structure
 
-- English-only queries
-- Open Library API is available (no fallback for MVP)
+```
+FindThatBook/
+├── src/
+│   ├── FindThatBook.Api/           # Controllers, Program.cs, Configuration
+│   ├── FindThatBook.Application/   # Use Cases, DTOs, Interfaces
+│   ├── FindThatBook.Domain/        # Entities, Value Objects, Enums
+│   └── FindThatBook.Infrastructure/# External APIs, Matching Logic
+├── tests/
+│   ├── FindThatBook.UnitTests/
+│   └── FindThatBook.IntegrationTests/
+└── README.md
+```
+
+---
+
+## 🔧 Configuration
+
+Configuration is managed through `appsettings.json` and User Secrets:
+
+```json
+{
+  "Gemini": {
+    "ApiKey": "",  // Set via User Secrets
+    "Model": "gemini-2.5-flash",
+    "BaseUrl": "https://generativelanguage.googleapis.com/v1beta/models"
+  },
+  "OpenLibrary": {
+    "BaseUrl": "https://openlibrary.org"
+  }
+}
+```
+
+---
+
+## 📖 Assumptions & Limitations
+
+- English-only queries (MVP)
+- Open Library API availability (no fallback)
 - Gemini AI returns parseable JSON
-- Single-user application (no auth)
+- Single-user application (no authentication)
+- Top 5 results returned by default
 
 ---
 
 ## 👤 Author
 
-**Paul Mec**  
-Technical Assessment for InfoTrack
+**PaulMec**
 
 [github.com/PaulMec/FindThatBook](https://github.com/PaulMec/FindThatBook)
+
+---
+
+## 🤖 AI Assistance
+
+This project was developed with assistance from **GitHub Copilot** for:
+- Code review focusing on SOLID principles and best practices
+- Documentation writing and PR descriptions
+- Design pattern recommendations
+- Identifying potential bugs and improvement opportunities
+
+Code reviews from **CodeRabbit** were also considered to improve the implementation, with the developer making final decisions on how to address each recommendation.
+
+**Developer Ownership:** All architecture decisions, business logic design, code implementation, and execution choices were made by the developer. AI tools served as reviewers and advisors.
