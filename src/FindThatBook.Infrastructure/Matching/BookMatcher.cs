@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Globalization;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using FindThatBook.Application.DTOs;
 using FindThatBook.Application.Interfaces;
 using FindThatBook.Domain.Entities;
-using FindThatBook.Domain.Enums;
 using FindThatBook.Domain.Records;
 using Microsoft.Extensions.Logging;
 
@@ -15,6 +12,12 @@ namespace FindThatBook.Infrastructure.Matching;
 public class BookMatcher : IBookMatcher
 {
     private readonly ILogger<BookMatcher> _logger;
+
+    // Artículos comunes en inglés y español para remover
+    private static readonly HashSet<string> Articles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "the", "a", "an", "el", "la", "los", "las", "un", "una", "unos", "unas"
+    };
 
     public BookMatcher(ILogger<BookMatcher> logger)
     {
@@ -58,46 +61,51 @@ public class BookMatcher : IBookMatcher
         // Strategy 1: Titulo + Autor (Más fuerte/Fuerte)
         if (extraction.HasTitle && extraction.HasAuthor)
         {
-            var titleMatch = IsTitleMatch(extraction.Title!, candidate.GetNormalizedTitle());
+            var titleMatch = IsTitleMatch(extraction.Title!, candidate.Title);
             var authorMatch = candidate.HasAuthor(extraction.Author!);
 
-            if (titleMatch && authorMatch)
+            if (titleMatch.IsMatch && authorMatch)
             {
-                // Comprueba si es el autor principal o colaborador.
-                var isPrimaryAuthor = candidate.PrimaryAuthor.GetNormalizedName()
-                    .Contains(extraction.Author!.ToLowerInvariant());
+                var normalizedSearchAuthor = extraction.Author!.ToLowerInvariant();
+                var isPrimaryAuthor = RemoveDiacritics(candidate.PrimaryAuthor.GetNormalizedName())
+                    .Contains(RemoveDiacritics(normalizedSearchAuthor));
 
                 if (isPrimaryAuthor)
                 {
-                    return BookMatch.CreateStrongest(candidate, extraction.Author!);
+                    return BookMatch.CreateStrongest(candidate, candidate.PrimaryAuthor.Name);
                 }
                 else
                 {
-                    return BookMatch.CreateStrong(candidate, extraction.Author!, "contributor");
+                    var matchedContributor = candidate.Contributors
+                        .FirstOrDefault(c => RemoveDiacritics(c.GetNormalizedName())
+                            .Contains(RemoveDiacritics(normalizedSearchAuthor)));
+
+                    var contributorName = matchedContributor?.Name ?? extraction.Author!;
+                    return BookMatch.CreateStrong(candidate, contributorName, "contributor");
                 }
             }
 
-            // Coincidencia parcial: coinciden los titulos, pero no los autores (o viceversa).
-            if (titleMatch)
+            // Coincidencia parcial: título coincide pero autor no
+            if (titleMatch.IsMatch)
             {
                 return BookMatch.CreateMedium(
                     candidate,
                     candidate.Title,
-                    similarity: 0.7);
+                    similarity: titleMatch.Similarity);
             }
         }
 
         // Strategy 2: Solo titulo
         if (extraction.HasTitle && !extraction.HasAuthor)
         {
-            var titleMatch = IsTitleMatch(extraction.Title!, candidate.GetNormalizedTitle());
+            var titleMatch = IsTitleMatch(extraction.Title!, candidate.Title);
 
-            if (titleMatch)
+            if (titleMatch.IsMatch)
             {
                 return BookMatch.CreateMedium(
                     candidate,
                     candidate.Title,
-                    similarity: 0.6);
+                    similarity: titleMatch.Similarity);
             }
         }
 
@@ -108,7 +116,7 @@ public class BookMatcher : IBookMatcher
 
             if (authorMatch)
             {
-                return BookMatch.CreateWeak(candidate, extraction.Author!);
+                return BookMatch.CreateWeak(candidate, candidate.PrimaryAuthor.Name);
             }
         }
 
@@ -116,7 +124,8 @@ public class BookMatcher : IBookMatcher
         if (extraction.Keywords?.Any() == true)
         {
             var matchedKeywords = extraction.Keywords
-                .Where(keyword => candidate.GetNormalizedTitle().Contains(keyword.ToLowerInvariant()))
+                .Where(keyword =>
+                    NormalizeForComparison(candidate.Title).Contains(NormalizeForComparison(keyword)))
                 .ToList();
 
             if (matchedKeywords.Any())
@@ -129,30 +138,145 @@ public class BookMatcher : IBookMatcher
         return null;
     }
 
-    private bool IsTitleMatch(string extractedTitle, string candidateTitle)
+    /// <summary>
+    /// Resultado del matching de títulos con información de similitud
+    /// </summary>
+    private record TitleMatchResult(bool IsMatch, double Similarity);
+
+    /// <summary>
+    /// Compara títulos manejando variantes, subtítulos, artículos y diacríticos
+    /// </summary>
+    private TitleMatchResult IsTitleMatch(string searchTitle, string candidateTitle)
     {
-        var normalizedExtracted = extractedTitle.ToLowerInvariant().Trim();
-        var normalizedCandidate = candidateTitle.ToLowerInvariant().Trim();
+        var normalizedSearch = NormalizeForComparison(searchTitle);
+        var normalizedCandidate = NormalizeForComparison(candidateTitle);
 
-        // Match exacto
-        if (normalizedExtracted == normalizedCandidate)
-            return true;
+        // 1. Match exacto después de normalización
+        if (normalizedSearch == normalizedCandidate)
+            return new TitleMatchResult(true, 1.0);
 
-        // Contiene Match (e.g., "Hobbit" matches "The Hobbit")
-        if (normalizedCandidate.Contains(normalizedExtracted) ||
-            normalizedExtracted.Contains(normalizedCandidate))
-            return true;
+        // 2. Uno contiene al otro completamente
+        if (normalizedCandidate.Contains(normalizedSearch))
+            return new TitleMatchResult(true, 0.95);
 
-        // Coincidencia aproximada con similitud simple MVP
-        var similarity = CalculateSimpleSimilarity(normalizedExtracted, normalizedCandidate);
-        return similarity > 0.7;
+        if (normalizedSearch.Contains(normalizedCandidate))
+            return new TitleMatchResult(true, 0.90);
+
+        // 3. Match sin artículos (The Hobbit vs Hobbit)
+        var searchWithoutArticles = RemoveArticles(normalizedSearch);
+        var candidateWithoutArticles = RemoveArticles(normalizedCandidate);
+
+        if (searchWithoutArticles == candidateWithoutArticles)
+            return new TitleMatchResult(true, 0.95);
+
+        if (candidateWithoutArticles.Contains(searchWithoutArticles) ||
+            searchWithoutArticles.Contains(candidateWithoutArticles))
+            return new TitleMatchResult(true, 0.85);
+
+        // 4. Match de subtítulos (Book: Subtitle o Book - Subtitle)
+        var candidateMainTitle = ExtractMainTitle(normalizedCandidate);
+        var searchMainTitle = ExtractMainTitle(normalizedSearch);
+
+        if (candidateMainTitle == searchMainTitle ||
+            candidateMainTitle.Contains(searchMainTitle) ||
+            searchMainTitle.Contains(candidateMainTitle))
+            return new TitleMatchResult(true, 0.80);
+
+        // 5. Similitud basada en palabras (Jaccard similarity mejorado)
+        var similarity = CalculateWordSimilarity(normalizedSearch, normalizedCandidate);
+
+        if (similarity >= 0.6)
+            return new TitleMatchResult(true, similarity);
+
+        // 6. Al menos la mitad de las palabras de búsqueda están en el candidato
+        var searchWords = GetSignificantWords(normalizedSearch);
+        var candidateWords = GetSignificantWords(normalizedCandidate);
+
+        if (searchWords.Any())
+        {
+            var matchedCount = searchWords.Count(sw =>
+                candidateWords.Any(cw => cw.Contains(sw) || sw.Contains(cw)));
+
+            var matchRatio = (double)matchedCount / searchWords.Count;
+
+            if (matchRatio >= 0.5)
+                return new TitleMatchResult(true, 0.5 + (matchRatio * 0.3));
+        }
+
+        return new TitleMatchResult(false, 0);
     }
 
-    private double CalculateSimpleSimilarity(string s1, string s2)
+    /// <summary>
+    /// Normaliza texto para comparación: lowercase, sin acentos, sin puntuación
+    /// </summary>
+    private static string NormalizeForComparison(string text)
     {
-        // Similitud simple basada en palabras para MVP
-        var words1 = s1.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
-        var words2 = s2.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        // Lowercase
+        var normalized = text.ToLowerInvariant();
+
+        // Remover diacríticos (acentos)
+        normalized = RemoveDiacritics(normalized);
+
+        // Remover puntuación excepto espacios
+        normalized = Regex.Replace(normalized, @"[^\w\s]", " ");
+
+        // Normalizar espacios múltiples
+        normalized = Regex.Replace(normalized, @"\s+", " ");
+
+        return normalized.Trim();
+    }
+
+    /// <summary>
+    /// Remueve artículos comunes del texto
+    /// </summary>
+    private static string RemoveArticles(string text)
+    {
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var filteredWords = words.Where(w => !Articles.Contains(w));
+        return string.Join(" ", filteredWords);
+    }
+
+    /// <summary>
+    /// Extrae el título principal antes de separadores comunes (: - –)
+    /// "The Hobbit: There and Back Again" -> "the hobbit"
+    /// </summary>
+    private static string ExtractMainTitle(string title)
+    {
+        // Separadores comunes de subtítulos
+        var separators = new[] { ":", " - ", " – ", " — ", " | " };
+
+        foreach (var separator in separators)
+        {
+            var index = title.IndexOf(separator, StringComparison.Ordinal);
+            if (index > 0)
+            {
+                return title.Substring(0, index).Trim();
+            }
+        }
+
+        return title;
+    }
+
+    /// <summary>
+    /// Obtiene palabras significativas (sin artículos, más de 2 caracteres)
+    /// </summary>
+    private static List<string> GetSignificantWords(string text)
+    {
+        return text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w.Length > 2 && !Articles.Contains(w))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Calcula similitud entre dos strings basada en palabras (Jaccard)
+    /// </summary>
+    private static double CalculateWordSimilarity(string s1, string s2)
+    {
+        var words1 = GetSignificantWords(s1).ToHashSet();
+        var words2 = GetSignificantWords(s2).ToHashSet();
 
         if (!words1.Any() || !words2.Any())
             return 0;
@@ -161,5 +285,28 @@ public class BookMatcher : IBookMatcher
         var union = words1.Union(words2).Count();
 
         return (double)intersection / union;
+    }
+
+    /// <summary>
+    /// Remueve acentos y diacríticos
+    /// </summary>
+    private static string RemoveDiacritics(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        var normalizedString = text.Normalize(NormalizationForm.FormD);
+        var stringBuilder = new StringBuilder(normalizedString.Length);
+
+        foreach (var c in normalizedString)
+        {
+            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+            {
+                stringBuilder.Append(c);
+            }
+        }
+
+        return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
     }
 }

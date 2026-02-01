@@ -12,10 +12,12 @@ namespace FindThatBook.Infrastructure.Matching;
 public class BookRanker : IBookRanker
 {
     private readonly ILogger<BookRanker> _logger;
+    private readonly BookDeduplicator _deduplicator;
 
-    public BookRanker(ILogger<BookRanker> logger)
+    public BookRanker(ILogger<BookRanker> logger, BookDeduplicator deduplicator)
     {
         _logger = logger;
+        _deduplicator = deduplicator;
     }
 
     public List<BookMatch> RankAndLimit(List<BookMatch> matches, int topN = 5)
@@ -28,14 +30,18 @@ public class BookRanker : IBookRanker
 
         _logger.LogInformation("Ranking {Count} matches, limiting to top {TopN}", matches.Count, topN);
 
-        // Ordenar por MatchStrength (más fuerte = 1, muy débil = 5) y, a continuación, por puntuación descendente.
-        var ranked = matches
-            .OrderBy(m => m.Strength)        // Primero Strongest 
-            .ThenByDescending(m => m.Score)  // Puntuación más alta primero dentro de la misma strength
+        // Paso 1: Deduplicar
+        var deduplicated = _deduplicator.Deduplicate(matches);
+
+        // Paso 2: Ordenar por Score (descendente) y luego por Strength
+        var ranked = deduplicated
+            .OrderByDescending(m => m.Score)
+            .ThenByDescending(m => (int)m.Strength)
+            .ThenBy(m => m.Book.FirstPublishYear ?? int.MaxValue) // Más antiguo primero
             .Take(topN)
             .ToList();
 
-        _logger.LogInformation("Returning {Count} top matches", ranked.Count);
+        _logger.LogInformation("Returning {Count} top matches after deduplication", ranked.Count);
 
         return ranked;
     }

@@ -45,6 +45,7 @@ builder.Services.AddHttpClient<IOpenLibraryClient, OpenLibraryClient>(client =>
 builder.Services.AddScoped<IBookMatcher, BookMatcher>();
 builder.Services.AddScoped<IBookRanker, BookRanker>();
 builder.Services.AddScoped<SearchBooksUseCase>();
+builder.Services.AddScoped<BookDeduplicator>();
 
 var app = builder.Build();
 

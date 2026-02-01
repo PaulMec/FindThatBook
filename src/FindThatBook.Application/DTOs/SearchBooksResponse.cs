@@ -6,11 +6,16 @@ using System.Threading.Tasks;
 
 namespace FindThatBook.Application.DTOs;
 
-public record SearchBooksResponse
+public class SearchBooksResponse
 {
-    public string Query { get; init; } = string.Empty;
-    public AIExtractionResult Extraction { get; init; } = new();
-    public List<BookResultDto> Results { get; init; } = new();
+    public string Query { get; set; } = string.Empty;
+    public AIExtractionResult Extraction { get; set; } = new();
+    public List<BookResultDto> Results { get; set; } = new();
+
+    /// <summary>
+    /// Mensaje opcional para el usuario (ej: "No results found", "Rate limit exceeded")
+    /// </summary>
+    public string? Message { get; set; }
 }
 
 public record BookResultDto
