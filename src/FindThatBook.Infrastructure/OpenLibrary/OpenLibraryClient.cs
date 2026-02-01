@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Web;
+using System.Net;
 using FindThatBook.Application.Interfaces;
 using FindThatBook.Domain.Entities;
 using FindThatBook.Domain.Exceptions;
@@ -45,10 +45,10 @@ public class OpenLibraryClient : IOpenLibraryClient
             var queryParams = new List<string>();
 
             if (!string.IsNullOrWhiteSpace(title))
-                queryParams.Add($"title={HttpUtility.UrlEncode(title)}");
+                queryParams.Add($"title={WebUtility.UrlEncode(title)}");
 
             if (!string.IsNullOrWhiteSpace(author))
-                queryParams.Add($"author={HttpUtility.UrlEncode(author)}");
+                queryParams.Add($"author={WebUtility.UrlEncode(author)}");
 
             if (!queryParams.Any())
             {

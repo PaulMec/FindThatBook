@@ -1,11 +1,11 @@
-﻿using System.Text;
-using System.Text.Json;
-using FindThatBook.Application.DTOs;
+﻿using FindThatBook.Application.DTOs;
 using FindThatBook.Application.Interfaces;
 using FindThatBook.Domain.Exceptions;
 using FindThatBook.Infrastructure.AI.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Text;
+using System.Text.Json;
 
 namespace FindThatBook.Infrastructure.AI;
 
@@ -29,7 +29,7 @@ public class GeminiAIProvider : IAIFieldExtractor
         string query,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Extracting fields from query using Gemini AI: {Query}", query);
+        _logger.LogInformation("Extracting fields from query using Gemini AI (length: {Length})", query?.Length);
 
         try
         {
@@ -109,13 +109,27 @@ Rules:
     {
         try
         {
-            var jsonDoc = JsonDocument.Parse(responseBody);
+            using var jsonDoc = JsonDocument.Parse(responseBody);
 
-            // Gemini envuelve la respuesta en: candidates[0].content.parts[0].text
+            // Gemini wraps response in: candidates[0].content.parts[0].text
             var candidates = jsonDoc.RootElement.GetProperty("candidates");
+
+            if (candidates.ValueKind != JsonValueKind.Array || candidates.GetArrayLength() == 0)
+            {
+                _logger.LogWarning("Gemini returned no candidates");
+                return new AIExtractionResult();
+            }
+
             var firstCandidate = candidates[0];
             var content = firstCandidate.GetProperty("content");
             var parts = content.GetProperty("parts");
+
+            if (parts.ValueKind != JsonValueKind.Array || parts.GetArrayLength() == 0)
+            {
+                _logger.LogWarning("Gemini returned no parts");
+                return new AIExtractionResult();
+            }
+
             var text = parts[0].GetProperty("text").GetString();
 
             if (string.IsNullOrWhiteSpace(text))
@@ -124,8 +138,8 @@ Rules:
                 return new AIExtractionResult();
             }
 
-            // Analiza el JSON interno (la extracción real)
-            var extractionJson = JsonDocument.Parse(text);
+            // Parse the inner JSON (the actual extraction)
+            using var extractionJson = JsonDocument.Parse(text);
             var root = extractionJson.RootElement;
 
             return new AIExtractionResult
