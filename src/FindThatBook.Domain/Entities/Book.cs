@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 
 using FindThatBook.Domain.ValueObjects;
 
@@ -64,7 +66,12 @@ public sealed class Book
         if (string.IsNullOrWhiteSpace(authorName))
             return false;
 
-        var normalizedSearch = authorName.ToLowerInvariant().Trim();
+        // Normalizamos la búsqueda igual que el autor (minúsculas + sin diacríticos).
+        var normalizedSearch = RemoveDiacritics(authorName.ToLowerInvariant().Trim());
+
+        if (string.IsNullOrWhiteSpace(normalizedSearch))
+            return false;
+
         var searchWords = normalizedSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
         // Check primary author
@@ -82,12 +89,15 @@ public sealed class Book
     /// </summary>
     private bool MatchesAuthorName(string authorName, string searchFull, string[] searchWords)
     {
+        if (string.IsNullOrWhiteSpace(authorName) || string.IsNullOrWhiteSpace(searchFull))
+            return false;
+
         // 1. Match exacto o contains
         if (authorName.Contains(searchFull))
             return true;
 
-        // 2. Match inverso (búsqueda contiene al autor)
-        if (searchFull.Contains(authorName))
+        // 2. Match inverso (búsqueda contiene al autor) con umbral para evitar falsos positivos
+        if (authorName.Length >= 4 && searchFull.Contains(authorName))
             return true;
 
         // 3. Match por palabras: si TODAS las palabras de búsqueda están en el nombre
@@ -108,6 +118,25 @@ public sealed class Book
 
     /// <summary>
     /// Obtiene el título normalizado para compararlo.
+    /// Minúsculas + sin diacríticos (para buscar "anos" vs "años").
     /// </summary>
-    public string GetNormalizedTitle() => Title.ToLowerInvariant().Trim();
+    public string GetNormalizedTitle()
+        => RemoveDiacritics(Title.ToLowerInvariant().Trim());
+
+    /// <summary>
+    /// Elimina acentos y diacríticos del texto para comparaciones.
+    /// </summary>
+    private static string RemoveDiacritics(string text)
+    {
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder();
+
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                builder.Append(c);
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
 }

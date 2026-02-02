@@ -117,6 +117,24 @@ public class BookTests
     }
 
     [Fact]
+    public void Book_GetNormalizedTitle_ShouldRemoveDiacritics()
+    {
+        // Arrange
+        var author = new Author("Test Author");
+        var book = new Book(
+            title: "Cien años de soledad",
+            primaryAuthor: author,
+            openLibraryWorkId: "OL123W"
+        );
+
+        // Act
+        var normalized = book.GetNormalizedTitle();
+
+        // Assert
+        normalized.Should().Be("cien anos de soledad");
+    }
+
+    [Fact]
     public void Book_WithEmptyTitle_ShouldThrowArgumentException()
     {
         // Arrange
