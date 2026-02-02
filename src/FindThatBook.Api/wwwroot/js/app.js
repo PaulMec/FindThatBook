@@ -41,12 +41,16 @@ searchForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const query = searchInput.value.trim();
-    if (!query) return;
-
     await performSearch(query);
 });
 
 async function performSearch(query) {
+    // Validación: campo vacío
+    if (!query || query.trim().length === 0) {
+        showError('Please enter a search query (title, author, or keywords).');
+        return;
+    }
+
     // Validación de seguridad
     if (query.length > 500) {
         showError('Query is too long. Maximum 500 characters allowed.');
