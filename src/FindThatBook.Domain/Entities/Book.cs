@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Globalization;
 using System.Text;
-using System.Threading.Tasks;
-
 using FindThatBook.Domain.ValueObjects;
 
 namespace FindThatBook.Domain.Entities;
@@ -59,19 +55,68 @@ public sealed class Book
 
     /// <summary>
     /// Comprueba autor (por nombre) es el autor principal o colaborador.
+    /// Normaliza acentos y caracteres especiales para mejor matching.
     /// </summary>
     public bool HasAuthor(string authorName)
     {
-        var normalizedName = authorName.ToLowerInvariant().Trim();
+        // Early guard para evitar match con string vacío
+        if (string.IsNullOrWhiteSpace(authorName))
+            return false;
 
-        if (PrimaryAuthor.GetNormalizedName().Contains(normalizedName))
+        var normalizedSearch = RemoveDiacritics(authorName.ToLowerInvariant()).Trim();
+
+        // Si después de normalizar queda vacío, retornar false
+        if (string.IsNullOrWhiteSpace(normalizedSearch))
+            return false;
+
+        var normalizedPrimary = RemoveDiacritics(PrimaryAuthor.GetNormalizedName());
+        if (normalizedPrimary.Contains(normalizedSearch) ||
+            normalizedSearch.Contains(normalizedPrimary))
             return true;
 
-        return Contributors.Any(c => c.GetNormalizedName().Contains(normalizedName));
+        // También verificar si las palabras del nombre buscado están en el autor
+        var searchWords = normalizedSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (searchWords.Length > 1)
+        {
+            var matchedWords = searchWords.Count(word => normalizedPrimary.Contains(word));
+            if (matchedWords >= 2) // Al menos 2 palabras coinciden
+                return true;
+        }
+
+        return Contributors.Any(c =>
+        {
+            var normalizedContributor = RemoveDiacritics(c.GetNormalizedName());
+            return normalizedContributor.Contains(normalizedSearch) ||
+                   normalizedSearch.Contains(normalizedContributor);
+        });
     }
 
     /// <summary>
     /// Obtiene el título normalizado para compararlo.
     /// </summary>
     public string GetNormalizedTitle() => Title.ToLowerInvariant().Trim();
+
+    /// <summary>
+    /// Remueve acentos y diacríticos de un string.
+    /// Ej: "García" -> "garcia", "Márquez" -> "marquez"
+    /// </summary>
+    private static string RemoveDiacritics(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        var normalizedString = text.Normalize(NormalizationForm.FormD);
+        var stringBuilder = new StringBuilder(normalizedString.Length);
+
+        foreach (var c in normalizedString)
+        {
+            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+            {
+                stringBuilder.Append(c);
+            }
+        }
+
+        return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
+    }
 }
