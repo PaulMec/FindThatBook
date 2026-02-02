@@ -1,0 +1,114 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find That Book</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen font-['Inter']">
+
+    <!-- Header -->
+    <header class="pt-12 pb-8 px-4">
+        <div class="max-w-4xl mx-auto text-center">
+            <h1 class="text-5xl font-bold text-white mb-3">
+                <span class="text-purple-400">📚</span> Find That Book
+            </h1>
+            <p class="text-slate-400 text-lg">
+                Enter a messy query — title, author, keywords — and let AI find your book
+            </p>
+        </div>
+    </header>
+
+    <!-- Search Section -->
+    <main class="px-4 pb-12">
+        <div class="max-w-4xl mx-auto">
+
+            <!-- Search Box -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/20">
+                <form id="searchForm" class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1 relative">
+                        <input type="text"
+                               id="searchInput"
+                               placeholder="e.g., tolkien hobbit, cien años soledad, stephen king dark tower..."
+                               class="w-full px-5 py-4 rounded-xl bg-white/10 border border-white/30 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg"
+                               autocomplete="off">
+                    </div>
+                    <button type="submit"
+                            id="searchButton"
+                            class="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-900">
+                        <span id="buttonText">Search</span>
+                        <span id="buttonLoader" class="hidden">
+                            <svg class="animate-spin h-5 w-5 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Searching...
+                        </span>
+                    </button>
+                </form>
+
+                <!-- Example queries -->
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <span class="text-slate-500 text-sm">Try:</span>
+                    <button class="example-query px-3 py-1 text-sm bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors" data-query="gabriel garcia marquez">gabriel garcia marquez</button>
+                    <button class="example-query px-3 py-1 text-sm bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors" data-query="1984 orwell">1984 orwell</button>
+                    <button class="example-query px-3 py-1 text-sm bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors" data-query="the hobbit">the hobbit</button>
+                    <button class="example-query px-3 py-1 text-sm bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors" data-query="harry potter magic school">harry potter magic school</button>
+                </div>
+            </div>
+
+            <!-- AI Extraction Info -->
+            <div id="extractionInfo" class="hidden bg-purple-500/20 backdrop-blur-lg rounded-xl p-4 mb-6 border border-purple-500/30">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">🤖</span>
+                    <div>
+                        <h3 class="text-purple-300 font-semibold mb-1">AI Extraction</h3>
+                        <p id="extractionDetails" class="text-slate-300 text-sm"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message/Info Banner -->
+            <div id="messageBanner" class="hidden bg-blue-500/20 backdrop-blur-lg rounded-xl p-4 mb-6 border border-blue-500/30">
+                <p id="messageText" class="text-blue-300 text-sm"></p>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="hidden bg-red-500/20 backdrop-blur-lg rounded-xl p-4 mb-6 border border-red-500/30">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">⚠️</span>
+                    <p id="errorText" class="text-red-300"></p>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div id="results" class="grid gap-6">
+                <!-- Results will be inserted here -->
+            </div>
+
+            <!-- No Results -->
+            <div id="noResults" class="hidden text-center py-12">
+                <span class="text-6xl mb-4 block">📭</span>
+                <h3 class="text-xl text-slate-400">No books found</h3>
+                <p class="text-slate-500 mt-2">Try a different search query</p>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-6 px-4 border-t border-white/10">
+        <div class="max-w-4xl mx-auto text-center text-slate-500 text-sm">
+            <p>Powered by <a href="https://openlibrary.org" target="_blank" class="text-purple-400 hover:text-purple-300">Open Library</a> & <a href="https://ai.google.dev" target="_blank" class="text-purple-400 hover:text-purple-300">Google Gemini AI</a></p>
+            <p class="mt-1">Built with .NET 8 Web API</p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
