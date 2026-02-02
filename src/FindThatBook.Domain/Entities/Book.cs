@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using FindThatBook.Domain.ValueObjects;
 
@@ -58,16 +56,54 @@ public sealed class Book
     }
 
     /// <summary>
-    /// Comprueba autor (por nombre) es el autor principal o colaborador.
+    /// Comprueba si el autor (por nombre) es el autor principal o colaborador.
+    /// Soporta matching parcial por palabras individuales.
     /// </summary>
     public bool HasAuthor(string authorName)
     {
-        var normalizedName = authorName.ToLowerInvariant().Trim();
+        if (string.IsNullOrWhiteSpace(authorName))
+            return false;
 
-        if (PrimaryAuthor.GetNormalizedName().Contains(normalizedName))
+        var normalizedSearch = authorName.ToLowerInvariant().Trim();
+        var searchWords = normalizedSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        // Check primary author
+        if (MatchesAuthorName(PrimaryAuthor.GetNormalizedName(), normalizedSearch, searchWords))
             return true;
 
-        return Contributors.Any(c => c.GetNormalizedName().Contains(normalizedName));
+        // Check contributors
+        return Contributors.Any(c =>
+            MatchesAuthorName(c.GetNormalizedName(), normalizedSearch, searchWords));
+    }
+
+    /// <summary>
+    /// Verifica si el nombre del autor coincide con la búsqueda.
+    /// Soporta: match exacto, contains, y match por palabras individuales.
+    /// </summary>
+    private bool MatchesAuthorName(string authorName, string searchFull, string[] searchWords)
+    {
+        // 1. Match exacto o contains
+        if (authorName.Contains(searchFull))
+            return true;
+
+        // 2. Match inverso (búsqueda contiene al autor)
+        if (searchFull.Contains(authorName))
+            return true;
+
+        // 3. Match por palabras: si TODAS las palabras de búsqueda están en el nombre
+        if (searchWords.Length > 1)
+        {
+            var allWordsMatch = searchWords.All(word => authorName.Contains(word));
+            if (allWordsMatch)
+                return true;
+        }
+
+        // 4. Match por apellido: si alguna palabra de búsqueda (>3 chars) está en el nombre
+        var significantWords = searchWords.Where(w => w.Length > 3);
+        if (significantWords.Any(word => authorName.Contains(word)))
+            return true;
+
+        return false;
     }
 
     /// <summary>
