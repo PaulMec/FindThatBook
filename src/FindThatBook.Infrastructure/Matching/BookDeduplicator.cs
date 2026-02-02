@@ -60,11 +60,9 @@ public class BookDeduplicator
     /// </summary>
     private string GetDeduplicationKey(BookMatch match)
     {
-        var title = NormalizeForDedup(match.Book.Title);
+        // Remover subtítulo ANTES de normalizar (porque normalizar elimina ":" y "-")
+        var title = NormalizeForDedup(RemoveSubtitle(match.Book.Title));
         var author = NormalizeForDedup(match.Book.PrimaryAuthor.Name);
-
-        // Remover subtítulos para agrupar variantes
-        title = RemoveSubtitle(title);
 
         return $"{title}|{author}";
     }

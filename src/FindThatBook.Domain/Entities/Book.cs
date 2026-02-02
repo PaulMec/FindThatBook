@@ -59,10 +59,19 @@ public sealed class Book
     /// </summary>
     public bool HasAuthor(string authorName)
     {
-        var normalizedSearch = RemoveDiacritics(authorName.ToLowerInvariant().Trim());
+        // Early guard para evitar match con string vacío
+        if (string.IsNullOrWhiteSpace(authorName))
+            return false;
+
+        var normalizedSearch = RemoveDiacritics(authorName.ToLowerInvariant()).Trim();
+
+        // Si después de normalizar queda vacío, retornar false
+        if (string.IsNullOrWhiteSpace(normalizedSearch))
+            return false;
 
         var normalizedPrimary = RemoveDiacritics(PrimaryAuthor.GetNormalizedName());
-        if (normalizedPrimary.Contains(normalizedSearch) || normalizedSearch.Contains(normalizedPrimary))
+        if (normalizedPrimary.Contains(normalizedSearch) ||
+            normalizedSearch.Contains(normalizedPrimary))
             return true;
 
         // También verificar si las palabras del nombre buscado están en el autor

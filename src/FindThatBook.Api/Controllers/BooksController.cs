@@ -60,7 +60,7 @@ public class BooksController : ControllerBase
                 Status = StatusCodes.Status400BadRequest
             });
         }
-        catch (HttpRequestException ex) when (ex.Message.Contains("429"))
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
             _logger.LogWarning(ex, "Rate limit exceeded");
             return StatusCode(StatusCodes.Status429TooManyRequests, new ProblemDetails

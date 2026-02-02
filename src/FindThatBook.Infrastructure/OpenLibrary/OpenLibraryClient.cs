@@ -296,7 +296,11 @@ public class OpenLibraryClient : IOpenLibraryClient
             return workId;
 
         if (workId.StartsWith("/"))
-            return workId;
+        {
+            // Elimine cualquier barra inicial y trátelo como un ID sin formato.
+            var bareId = workId.TrimStart('/');
+            return $"/works/{bareId}";
+        }
 
         return $"/works/{workId}";
     }

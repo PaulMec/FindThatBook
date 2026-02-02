@@ -51,10 +51,17 @@ public class WorkResponse
                 return jsonElement.GetString();
 
             if (jsonElement.TryGetProperty("value", out var valueElement))
-                return valueElement.GetString();
+            {
+                // Validar ValueKind antes de llamar GetString()
+                if (valueElement.ValueKind == System.Text.Json.JsonValueKind.String)
+                    return valueElement.GetString();
+
+                if (valueElement.ValueKind == System.Text.Json.JsonValueKind.Null)
+                    return null;
+            }
         }
 
-        return Description.ToString();
+        return null;
     }
 }
 
