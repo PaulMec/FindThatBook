@@ -110,4 +110,28 @@ public sealed class Book
     /// Obtiene el título normalizado para compararlo.
     /// </summary>
     public string GetNormalizedTitle() => Title.ToLowerInvariant().Trim();
+
+    /// <summary>
+    /// Remueve acentos y diacríticos de un string.
+    /// Ej: "García" -> "garcia", "Márquez" -> "marquez"
+    /// </summary>
+    private static string RemoveDiacritics(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        var normalizedString = text.Normalize(NormalizationForm.FormD);
+        var stringBuilder = new StringBuilder(normalizedString.Length);
+
+        foreach (var c in normalizedString)
+        {
+            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+            {
+                stringBuilder.Append(c);
+            }
+        }
+
+        return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
+    }
 }
