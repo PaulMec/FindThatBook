@@ -33,7 +33,7 @@ public sealed record BookMatch
         return new BookMatch(
             book,
             MatchStrength.Strongest,
-            $"Coincidencia exacta del título; {matchedAuthor} es el autor principal.",
+            $"Exact title match; {matchedAuthor} is primary author.",
             score: 1.0
         );
     }
@@ -46,7 +46,7 @@ public sealed record BookMatch
         return new BookMatch(
             book,
             MatchStrength.Strong,
-            $"Coincidencia exacta del título; {matchedAuthor} aparece como {role}",
+            $"Exact title match; {matchedAuthor} listed as {role}.",
             score: 0.8
         );
     }
@@ -56,10 +56,11 @@ public sealed record BookMatch
     /// </summary>
     public static BookMatch CreateMedium(Book book, string matchedTitle, double similarity)
     {
+        var percentage = (int)(similarity * 100);
         return new BookMatch(
             book,
             MatchStrength.Medium,
-            $"Título similar '{matchedTitle}'; coincidencia del autor (similitud: {similarity:P0})",
+            $"Partial title match ({percentage}% similarity); author not confirmed.",
             score: similarity
         );
     }
@@ -72,7 +73,7 @@ public sealed record BookMatch
         return new BookMatch(
             book,
             MatchStrength.Weak,
-            $"Sin título; muestra las mejores obras de {authorName}",
+            $"Author match only; showing top works by {authorName}.",
             score: 0.5
         );
     }
@@ -91,7 +92,7 @@ public sealed record BookMatch
         return new BookMatch(
             book,
             MatchStrength.VeryWeak,
-            $"Coincidencia de palabras clave: {keywords} encontradas en el título/descripción",
+            $"Keyword match: {keywords} found in title/description.",
             score: 0.3
         );
     }
