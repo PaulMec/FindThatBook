@@ -17,6 +17,17 @@ const extractionDetails = document.getElementById('extractionDetails');
 const messageBanner = document.getElementById('messageBanner');
 const messageText = document.getElementById('messageText');
 
+// URL validation helper to prevent XSS
+function isValidHttpUrl(string) {
+    if (!string) return false;
+    try {
+        const url = new URL(string);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
 // Example query buttons
 document.querySelectorAll('.example-query').forEach(button => {
     button.addEventListener('click', () => {
@@ -36,10 +47,12 @@ searchForm.addEventListener('submit', async (e) => {
 });
 
 async function performSearch(query) {
+    // Validación de seguridad
     if (query.length > 500) {
         showError('Query is too long. Maximum 500 characters allowed.');
         return;
     }
+
     // Reset UI
     hideAllMessages();
     showLoading(true);
@@ -55,8 +68,15 @@ async function performSearch(query) {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || error.title || 'Search failed');
+            let errorMessage = 'Search failed';
+            try {
+                const error = await response.json();
+                errorMessage = error.detail || error.title || errorMessage;
+            } catch {
+                // Response wasn't JSON, use status text
+                errorMessage = response.statusText || errorMessage;
+            }
+            throw new Error(errorMessage);
         }
 
         const data = await response.json();
@@ -68,7 +88,6 @@ async function performSearch(query) {
         showLoading(false);
     }
 }
-
 function displayResults(data) {
     // Show AI extraction info
     if (data.extraction) {
@@ -100,8 +119,8 @@ function createBookCard(book, index) {
     card.className = 'book-card bg-white/10 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/20 flex flex-col sm:flex-row fade-in opacity-0';
     card.style.animationDelay = `${index * 0.1}s`;
 
-    // Cover image
-    const coverHtml = book.coverUrl
+    // Cover image - validate URL
+    const coverHtml = isValidHttpUrl(book.coverUrl)
         ? `<img src="${book.coverUrl}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover">`
         : `<div class="cover-placeholder w-full h-full">📖</div>`;
 
@@ -109,6 +128,9 @@ function createBookCard(book, index) {
     const yearHtml = book.firstPublishYear
         ? `<span class="text-slate-400">First published: ${book.firstPublishYear}</span>`
         : '';
+
+    // Validate Open Library URL
+    const openLibraryHref = isValidHttpUrl(book.openLibraryUrl) ? book.openLibraryUrl : '#';
 
     card.innerHTML = `
         <div class="cover-container w-full sm:w-48 h-48 sm:h-auto flex-shrink-0 bg-slate-800">
@@ -126,7 +148,7 @@ function createBookCard(book, index) {
                 <p class="text-slate-300 text-sm italic">"${escapeHtml(book.explanation)}"</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a href="${book.openLibraryUrl}" target="_blank" 
+                <a href="${openLibraryHref}" target="_blank" rel="noopener noreferrer"
                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-sm transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
@@ -144,13 +166,13 @@ function showExtractionInfo(extraction) {
     const parts = [];
 
     if (extraction.title) {
-        parts.push(`<strong>Title:</strong> "${extraction.title}"`);
+        parts.push(`<strong>Title:</strong> "${escapeHtml(extraction.title)}"`);
     }
     if (extraction.author) {
-        parts.push(`<strong>Author:</strong> "${extraction.author}"`);
+        parts.push(`<strong>Author:</strong> "${escapeHtml(extraction.author)}"`);
     }
     if (extraction.keywords && extraction.keywords.length > 0) {
-        parts.push(`<strong>Keywords:</strong> ${extraction.keywords.join(', ')}`);
+        parts.push(`<strong>Keywords:</strong> ${extraction.keywords.map(k => escapeHtml(k)).join(', ')}`);
     }
 
     if (parts.length > 0) {
@@ -158,7 +180,6 @@ function showExtractionInfo(extraction) {
         extractionInfo.classList.remove('hidden');
     }
 }
-
 function showMessage(message) {
     messageText.textContent = message;
     messageBanner.classList.remove('hidden');
