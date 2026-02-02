@@ -1,5 +1,9 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Text;
+
 using FindThatBook.Domain.ValueObjects;
 
 namespace FindThatBook.Domain.Entities;
@@ -54,69 +58,85 @@ public sealed class Book
     }
 
     /// <summary>
-    /// Comprueba autor (por nombre) es el autor principal o colaborador.
-    /// Normaliza acentos y caracteres especiales para mejor matching.
+    /// Comprueba si el autor (por nombre) es el autor principal o colaborador.
+    /// Soporta matching parcial por palabras individuales.
     /// </summary>
     public bool HasAuthor(string authorName)
     {
-        // Early guard para evitar match con string vacío
         if (string.IsNullOrWhiteSpace(authorName))
             return false;
 
-        var normalizedSearch = RemoveDiacritics(authorName.ToLowerInvariant()).Trim();
+        // Normalizamos la búsqueda igual que el autor (minúsculas + sin diacríticos).
+        var normalizedSearch = RemoveDiacritics(authorName.ToLowerInvariant().Trim());
 
-        // Si después de normalizar queda vacío, retornar false
         if (string.IsNullOrWhiteSpace(normalizedSearch))
             return false;
 
-        var normalizedPrimary = RemoveDiacritics(PrimaryAuthor.GetNormalizedName());
-        if (normalizedPrimary.Contains(normalizedSearch) ||
-            normalizedSearch.Contains(normalizedPrimary))
+        var searchWords = normalizedSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        // Check primary author
+        if (MatchesAuthorName(PrimaryAuthor.GetNormalizedName(), normalizedSearch, searchWords))
             return true;
 
-        // También verificar si las palabras del nombre buscado están en el autor
-        var searchWords = normalizedSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // Check contributors
+        return Contributors.Any(c =>
+            MatchesAuthorName(c.GetNormalizedName(), normalizedSearch, searchWords));
+    }
+
+    /// <summary>
+    /// Verifica si el nombre del autor coincide con la búsqueda.
+    /// Soporta: match exacto, contains, y match por palabras individuales.
+    /// </summary>
+    private bool MatchesAuthorName(string authorName, string searchFull, string[] searchWords)
+    {
+        if (string.IsNullOrWhiteSpace(authorName) || string.IsNullOrWhiteSpace(searchFull))
+            return false;
+
+        // 1. Match exacto o contains
+        if (authorName.Contains(searchFull))
+            return true;
+
+        // 2. Match inverso (búsqueda contiene al autor) con umbral para evitar falsos positivos
+        if (authorName.Length >= 4 && searchFull.Contains(authorName))
+            return true;
+
+        // 3. Match por palabras: si TODAS las palabras de búsqueda están en el nombre
         if (searchWords.Length > 1)
         {
-            var matchedWords = searchWords.Count(word => normalizedPrimary.Contains(word));
-            if (matchedWords >= 2) // Al menos 2 palabras coinciden
+            var allWordsMatch = searchWords.All(word => authorName.Contains(word));
+            if (allWordsMatch)
                 return true;
         }
 
-        return Contributors.Any(c =>
-        {
-            var normalizedContributor = RemoveDiacritics(c.GetNormalizedName());
-            return normalizedContributor.Contains(normalizedSearch) ||
-                   normalizedSearch.Contains(normalizedContributor);
-        });
+        // 4. Match por apellido: si alguna palabra de búsqueda (>3 chars) está en el nombre
+        var significantWords = searchWords.Where(w => w.Length > 3);
+        if (significantWords.Any(word => authorName.Contains(word)))
+            return true;
+
+        return false;
     }
 
     /// <summary>
     /// Obtiene el título normalizado para compararlo.
+    /// Minúsculas + sin diacríticos (para buscar "anos" vs "años").
     /// </summary>
-    public string GetNormalizedTitle() => Title.ToLowerInvariant().Trim();
+    public string GetNormalizedTitle()
+        => RemoveDiacritics(Title.ToLowerInvariant().Trim());
 
     /// <summary>
-    /// Remueve acentos y diacríticos de un string.
-    /// Ej: "García" -> "garcia", "Márquez" -> "marquez"
+    /// Elimina acentos y diacríticos del texto para comparaciones.
     /// </summary>
     private static string RemoveDiacritics(string text)
     {
-        if (string.IsNullOrEmpty(text))
-            return text;
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder();
 
-        var normalizedString = text.Normalize(NormalizationForm.FormD);
-        var stringBuilder = new StringBuilder(normalizedString.Length);
-
-        foreach (var c in normalizedString)
+        foreach (var c in normalized)
         {
-            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
-            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
-            {
-                stringBuilder.Append(c);
-            }
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                builder.Append(c);
         }
 
-        return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 }
