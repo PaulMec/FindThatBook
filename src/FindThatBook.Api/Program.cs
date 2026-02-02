@@ -57,10 +57,19 @@ app.UseSwaggerUI(options =>
     options.RoutePrefix = "swagger";
 });
 
-app.MapGet("/", () => Results.Redirect("/swagger"));
-
 app.UseHttpsRedirection();
+
+// Serve static files from wwwroot (CSS, JS, images)
+app.UseStaticFiles();
+
 app.UseAuthorization();
 app.MapControllers();
+
+// Serve index.html for root path (Frontend)
+app.MapGet("/", context =>
+{
+    context.Response.Redirect("/index.html");
+    return Task.CompletedTask;
+});
 
 app.Run();
