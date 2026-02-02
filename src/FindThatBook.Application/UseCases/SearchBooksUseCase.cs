@@ -6,6 +6,10 @@ using Microsoft.Extensions.Logging;
 
 namespace FindThatBook.Application.UseCases;
 
+/// <summary>
+/// Orquesta extracción IA, búsqueda en Open Library,
+/// matching y ranking para devolver los mejores resultados.
+/// </summary>
 public class SearchBooksUseCase
 {
     private readonly IAIFieldExtractor _aiExtractor;
@@ -28,6 +32,13 @@ public class SearchBooksUseCase
         _logger = logger;
     }
 
+    /// <summary>
+    /// Valida la entrada, extrae campos con IA, busca candidatos,
+    /// hace matching, ordena y retorna el top 5 con explicación.
+    /// </summary>
+    /// <param name="request">Solicitud con Query a analizar.</param>
+    /// <param name="cancellationToken">Token de cancelación opcional.</param>
+    /// <returns>Respuesta con extracción y resultados ordenados.</returns>
     public async Task<SearchBooksResponse> ExecuteAsync(
         SearchBooksRequest request,
         CancellationToken cancellationToken = default)
@@ -162,6 +173,12 @@ public class SearchBooksUseCase
         };
     }
 
+    /// <summary>
+    /// Consulta Open Library según los campos extraídos; si no hay señal, retorna vacío.
+    /// </summary>
+    /// <param name="extraction">Campos extraídos por IA.</param>
+    /// <param name="cancellationToken">Token de cancelación opcional.</param>
+    /// <returns>Lista de candidatos (puede ser vacía).</returns>
     private async Task<List<Book>> SearchCandidatesAsync(
         AIExtractionResult extraction,
         CancellationToken cancellationToken)

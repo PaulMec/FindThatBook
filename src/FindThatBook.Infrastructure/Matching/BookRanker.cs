@@ -9,6 +9,9 @@ using Microsoft.Extensions.Logging;
 
 namespace FindThatBook.Infrastructure.Matching;
 
+/// <summary>
+/// Rankea coincidencias aplicando deduplicación previa y limita a Top N.
+/// </summary>
 public class BookRanker : IBookRanker
 {
     private readonly ILogger<BookRanker> _logger;
@@ -20,6 +23,9 @@ public class BookRanker : IBookRanker
         _deduplicator = deduplicator;
     }
 
+    /// <summary>
+    /// Deduplica, ordena por Score y Strength, prioriza el año más antiguo y retorna los Top N.
+    /// </summary>
     public List<BookMatch> RankAndLimit(List<BookMatch> matches, int topN = 5)
     {
         if (matches == null || !matches.Any())

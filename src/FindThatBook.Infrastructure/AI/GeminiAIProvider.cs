@@ -9,6 +9,9 @@ using System.Text.Json;
 
 namespace FindThatBook.Infrastructure.AI;
 
+/// <summary>
+/// Extractor de campos vía Gemini: construye prompt, llama a la API y parsea la respuesta JSON.
+/// </summary>
 public class GeminiAIProvider : IAIFieldExtractor
 {
     private readonly HttpClient _httpClient;
@@ -25,6 +28,9 @@ public class GeminiAIProvider : IAIFieldExtractor
         _logger = logger;
     }
 
+    /// <summary>
+    /// Invoca Gemini con un prompt controlado y retorna AIExtractionResult; maneja errores HTTP/JSON.
+    /// </summary>
     public async Task<AIExtractionResult> ExtractFieldsAsync(
         string query,
         CancellationToken cancellationToken = default)
@@ -78,6 +84,9 @@ public class GeminiAIProvider : IAIFieldExtractor
         }
     }
 
+    /// <summary>
+    /// Construye el prompt para extraer {title, author, year, keywords} en JSON válido (estricto).
+    /// </summary>
     private string BuildPrompt(string query)
     {
         return $@"You are a book metadata extractor. Analyze this query and extract book information.
@@ -105,6 +114,9 @@ Rules:
 - Return ONLY the JSON object, no explanations";
     }
 
+    /// <summary>
+    /// Parsea la envoltura de Gemini y el JSON interno; devuelve campos normalizados o vacío si no hay candidatos.
+    /// </summary>
     private AIExtractionResult ParseGeminiResponse(string responseBody, string originalQuery)
     {
         try

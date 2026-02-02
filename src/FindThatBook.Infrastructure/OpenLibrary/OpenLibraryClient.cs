@@ -10,6 +10,9 @@ using Microsoft.Extensions.Options;
 
 namespace FindThatBook.Infrastructure.OpenLibrary;
 
+/// <summary>
+/// Cliente de Open Library: realiza búsquedas y obtiene detalles de obras/autores con logging y manejo de errores.
+/// </summary>
 public class OpenLibraryClient : IOpenLibraryClient
 {
     private readonly HttpClient _httpClient;
@@ -29,6 +32,9 @@ public class OpenLibraryClient : IOpenLibraryClient
         _logger = logger;
     }
 
+    /// <summary>
+    /// Busca libros por título/autor en /search.json y mapea a Book. Retorna vacío si no hay parámetros o resultados.
+    /// </summary>
     public async Task<List<Book>> SearchBooksAsync(
         string? title,
         string? author,
@@ -94,6 +100,9 @@ public class OpenLibraryClient : IOpenLibraryClient
         }
     }
 
+    /// <summary>
+    /// Obtiene detalles de una obra desde /works/{id}.json y construye un Book con autor, portada y año.
+    /// </summary>
     public async Task<Book?> GetWorkDetailsAsync(
         string workId,
         CancellationToken cancellationToken = default)
@@ -169,7 +178,8 @@ public class OpenLibraryClient : IOpenLibraryClient
     }
 
     /// <summary>
-    /// Obtiene información de un autor por su ID
+    /// Obtiene información del autor desde /authors/{id}.json. 
+    /// Retorna null si no existe.
     /// </summary>
     public async Task<AuthorResponse?> GetAuthorAsync(
         string authorId,
@@ -201,7 +211,8 @@ public class OpenLibraryClient : IOpenLibraryClient
     }
 
     /// <summary>
-    /// Obtiene las obras de un autor por su ID usando /authors/{id}/works.json
+    /// Lista obras del autor usando /authors/{id}/works.json y las mapea a Book. 
+    /// Limita por <paramref name="limit"/>.
     /// </summary>
     public async Task<List<Book>> GetAuthorWorksByIdAsync(
         string authorId,
@@ -252,6 +263,9 @@ public class OpenLibraryClient : IOpenLibraryClient
         }
     }
 
+    /// <summary>
+    /// Busca obras por nombre de autor usando /search.json como fallback.
+    /// </summary>
     public async Task<List<Book>> GetAuthorWorksAsync(
         string authorName,
         int limit = 10,
@@ -265,6 +279,9 @@ public class OpenLibraryClient : IOpenLibraryClient
 
     #region Private Helper Methods
 
+    /// <summary>
+    /// Resuelve el nombre del autor por clave (con caché), usando GetAuthorAsync.
+    /// </summary>
     private async Task<string?> GetAuthorNameAsync(string authorKey, CancellationToken cancellationToken)
     {
         // Verificar cache primero
@@ -290,6 +307,9 @@ public class OpenLibraryClient : IOpenLibraryClient
         return null;
     }
 
+    /// <summary>
+    /// Normaliza el identificador de obra al formato “/works/{id}”.
+    /// </summary>
     private static string NormalizeWorkId(string workId)
     {
         if (workId.StartsWith("/works/"))
@@ -305,6 +325,9 @@ public class OpenLibraryClient : IOpenLibraryClient
         return $"/works/{workId}";
     }
 
+    /// <summary>
+    /// Intenta extraer un año (yyyy) desde una cadena de fecha.
+    /// </summary>
     private static int? ExtractYear(string dateString)
     {
         if (string.IsNullOrWhiteSpace(dateString))
@@ -320,6 +343,10 @@ public class OpenLibraryClient : IOpenLibraryClient
         return null;
     }
 
+    /// <summary>
+    /// Convierte un SearchDoc en Book; 
+    /// retorna null si faltan datos clave (título, autor, key).
+    /// </summary>
     private Book? MapToBook(SearchDoc doc)
     {
         try
@@ -364,6 +391,9 @@ public class OpenLibraryClient : IOpenLibraryClient
         }
     }
 
+    /// <summary>
+    /// Convierte una entrada de obras de autor en Book incluyendo portada y año si están disponibles.
+    /// </summary>
     private Book? MapAuthorWorkToBook(AuthorWorkEntry entry, string authorName)
     {
         try
