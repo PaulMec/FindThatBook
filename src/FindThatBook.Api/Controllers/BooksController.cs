@@ -5,6 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FindThatBook.Api.Controllers;
 
+/// <summary>
+/// Controlador de libros: expone búsqueda y health.
+/// Maneja códigos 200/400/500 y registra eventos clave.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class BooksController : ControllerBase
@@ -20,6 +24,12 @@ public class BooksController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>
+    /// Ejecuta la búsqueda y retorna hasta 5 resultados con explicación.
+    /// </summary>
+    /// <param name="request">Texto libre (Query) a analizar.</param>
+    /// <param name="cancellationToken">Token de cancelación opcional.</param>
+    /// <returns>Respuesta con extracción de IA y lista de resultados.</returns>
     [HttpPost("search")]
     [ProducesResponseType(typeof(SearchBooksResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -112,6 +122,10 @@ public class BooksController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Verificación rápida del estado de la API.
+    /// </summary>
+    /// <returns>Objeto con estado healthy y timestamp UTC.</returns>
     [HttpGet("health")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()

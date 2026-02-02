@@ -9,6 +9,9 @@ using Microsoft.Extensions.Logging;
 
 namespace FindThatBook.Infrastructure.Matching;
 
+/// <summary>
+/// Aplica estrategias de matching (título+autor, solo título, solo autor, keywords) con normalización.
+/// </summary>
 public class BookMatcher : IBookMatcher
 {
     private readonly ILogger<BookMatcher> _logger;
@@ -24,6 +27,9 @@ public class BookMatcher : IBookMatcher
         _logger = logger;
     }
 
+    /// <summary>
+    /// Valida entrada, evalúa cada candidato y acumula resultados con logging.
+    /// </summary>
     public List<BookMatch> Match(AIExtractionResult extraction, List<Book> candidates)
     {
         if (extraction == null)
@@ -56,6 +62,9 @@ public class BookMatcher : IBookMatcher
         return matches;
     }
 
+    /// <summary>
+    /// Evalúa un candidato según la jerarquía: Strongest/Strong/Medium/Weak/VeryWeak.
+    /// </summary>
     private BookMatch? TryMatchBook(AIExtractionResult extraction, Book candidate)
     {
         // Strategy 1: Titulo + Autor (Más fuerte/Fuerte)

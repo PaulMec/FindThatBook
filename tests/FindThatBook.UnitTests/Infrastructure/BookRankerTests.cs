@@ -16,7 +16,9 @@ public class BookRankerTests
     public BookRankerTests()
     {
         var loggerMock = new Mock<ILogger<BookRanker>>();
-        _ranker = new BookRanker(loggerMock.Object);
+        var deduplicatorLoggerMock = new Mock<ILogger<BookDeduplicator>>();
+        var deduplicator = new BookDeduplicator(deduplicatorLoggerMock.Object);
+        _ranker = new BookRanker(loggerMock.Object, deduplicator);
     }
 
     private Book CreateTestBook(string title)
